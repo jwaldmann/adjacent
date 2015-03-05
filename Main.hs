@@ -9,8 +9,9 @@ import qualified Satchmo.Array as A
 import qualified Data.Array as DA
 import Satchmo.SAT.Mini ( solve )
 import Satchmo.Code
+import Prelude hiding (and, or, not)
 import Satchmo.Boolean
-import Control.Monad ( void, forM, guard, when )
+import Control.Monad ( void, forM, guard, when, zipWithM )
 import qualified Data.Map as M
 import Data.List ( tails, intersperse )
 import System.Environment
@@ -74,12 +75,32 @@ neighbours neigh bnd (x,y) = do
   guard $ DA.inRange bnd pos
   return (x+dx,y+dy)
 
+rotate p = A.array (A.bounds p) $ do
+  let ((1,1),(w,w')) {- | w == w' -} = A.bounds p
+  ((x,y),v) <- A.assocs p
+  return ((w+1-y,x),v)
+
+mirror_diag p = A.array (A.bounds p) $ do
+  let ((1,1),(w,w')) | w == w' = A.bounds p
+  ((x,y),v) <- A.assocs p
+  return ((y, x),v)
+
+mirror_antidiag p = A.array (A.bounds p) $ do
+  let ((1,1),(w,w')) {- | w == w' -} = A.bounds p
+  ((x,y),v) <- A.assocs p
+  return ((w+1-y, w+1-x),v) 
+
 work neigh ns w mtotal = do
   print (neigh,ns,w,mtotal)
   out <- solve $ do
     let bnd = ((1,1),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
     assert $ ps >>= A.elems
+    forM ps $ \ p -> do
+      -- ok <- equalsA p $ mirror_diag p ; assert [ ok ]
+      ok <- equalsA p $ rotate p ; assert [ ok ]
+      -- ok <- equalsA p $ rotate $ rotate p ; assert [ ok ]
+      return ()
     case mtotal of
       Nothing -> return ()
       Just total -> do
@@ -114,6 +135,10 @@ work neigh ns w mtotal = do
       render_html fname info ps
       return $ Just c
     Nothing -> return Nothing
+
+equalsA a b | A.bounds a == A.bounds b = 
+  zipWithM equals2 (A.elems a) (A.elems b) >>= and
+  
 
 render_ascii info ps = do
   let ((1,1),(h,w)) = DA.bounds $ head ps
