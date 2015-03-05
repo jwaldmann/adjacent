@@ -42,7 +42,7 @@ control neigh ns = do
         ok <- work neigh ns w $ Just (have - 1)
         case ok of
           Nothing -> g (w+1) have
-          Just c -> g w (have - 1 )
+          Just c -> g w c
   f 1
 
 test = work King [2,5] 7 Nothing
