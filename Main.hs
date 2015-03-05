@@ -23,23 +23,20 @@ data Neigh = King | Knight deriving ( Read, Show )
 
 -- | search for solution on square board.
 -- first increase board size until solution is found,
--- then bisect by number of positions that are occupied.
--- (this may miss solutions that have larger board size
--- but smaller number of positions.)
+-- then reduce number of occupied positions.
 control neigh ns = do
   let f :: Int -> IO ()
       f w = do
         ok <- work neigh ns w Nothing
         case ok of
-          False -> f (w+1)
-          True -> g w (0, w^2)
-      g :: Int -> (Int,Int) -> IO ()    
-      g w (lo,hi) = if hi - lo <= 1 then return () else do
-        let mid = div (lo+hi) 2
-        ok <- work neigh ns w (Just mid)
+          Nothing -> f (w+1)
+          Just c -> g w (c-1)
+      g :: Int -> Int -> IO ()    
+      g w c = do
+        ok <- work neigh ns w $ Just c
         case ok of
-          False -> g w (mid,hi)
-          True -> g w (lo, mid)
+          Nothing -> return ()
+          Just c -> g w $ c-1
   f 1
 
 test = work King [2,5] 7 Nothing
@@ -88,7 +85,7 @@ work neigh ns w mtotal = do
         assert [ Satchmo.Boolean.not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
-        assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
+        when False $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
           pos <- neighbours neigh bnd (x,y)
           return $ p A.! pos
     return $ decode ps
@@ -97,13 +94,14 @@ work neigh ns w mtotal = do
       when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
       let m = M.fromList $ do
             (c,p) <- zip [ 'A' .. ] ps ; (i,True) <- DA.assocs p; return (i, c)
-      putStrLn $ unlines $ do
+      let c = length $ filter id $ ps >>= DA.elems
+      putStrLn $ unlines $ ( "occupied positions: " ++ show c ) : do
         y <- [1..w]
         return $ do
           x <- [1..w]
           [ M.findWithDefault '.' (x,y) m , ' ' ]
-      return True
-    Nothing -> return False
+      return $ Just c
+    Nothing -> return Nothing
           
     
 for = flip map
