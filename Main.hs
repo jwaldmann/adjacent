@@ -13,11 +13,12 @@ import Prelude hiding (and, or, not)
 import Satchmo.Boolean
 import Control.Monad ( void, forM, guard, when, zipWithM )
 import qualified Data.Map as M
-import Data.List ( tails, intersperse )
+import Data.List ( tails, intersperse, isPrefixOf )
 import System.Environment
 
 import Text.Hamlet (shamlet)
 import Text.Blaze.Html.Renderer.String (renderHtml)
+import System.Directory
 
 -- | cmd line arguments:
 -- first: King or Knight, then: numbers
@@ -130,8 +131,12 @@ work neigh ns w mtotal = do
                  , "width:", show w, "occupied:", show c ]
       when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
       render_ascii info ps
-      let fname = concat ( intersperse "-" ( show neigh : map show ns ++ [ show c ] ) )
-                  ++ ".html"
+      let prefix = concat ( intersperse "-" ( show neigh : map show ns  ) ) ++ "."
+          fname = prefix ++ show c ++ ".html"
+      fs <- getDirectoryContents "."
+      forM fs $ \ f -> when (isPrefixOf prefix f) $ do
+        putStrLn $ unwords [ "remove", f ]
+        removeFile f
       render_html fname info ps
       return $ Just c
     Nothing -> return Nothing
