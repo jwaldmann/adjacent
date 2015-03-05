@@ -1,6 +1,7 @@
 -- | http://www2.stetson.edu/~efriedma/mathmagic/0315.html
 
 import qualified Satchmo.Counting.Binary as C
+-- import qualified Satchmo.Counting.Unary as C
 
 import qualified Satchmo.Array as A
 import qualified Data.Array as DA
@@ -9,6 +10,7 @@ import Satchmo.Code
 import Satchmo.Boolean
 import Control.Monad ( void, forM, guard, when )
 import qualified Data.Map as M
+import Data.List ( tails )
 import System.Environment
 
 -- | cmd line arguments:
@@ -73,7 +75,10 @@ work neigh ns w mtotal = do
       Just total -> do
         ok <- C.atmost total $ ps >>= A.elems ; assert [ ok ]
     void $ forM (A.range bnd) $ \ i -> do
-      ok <- C.atmost 1 $ for ps $ \ p -> p A.! i ; assert [ ok ]
+      let vs = for ps $ \ p -> p A.! i 
+      void $ sequence $ do
+        (v:us) <- tails vs ; u <- us
+        return $ assert $ map Satchmo.Boolean.not [ v, u]
     void $ forM (zip3 ns ps $ tail ps ++ [head ps]) $ \ (n,p,q) -> 
       void $ forM (A.assocs p) $ \ ((x,y),v) -> do
         -- number of neighbours:
