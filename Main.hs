@@ -1,5 +1,7 @@
 -- | http://www2.stetson.edu/~efriedma/mathmagic/0315.html
 
+{-# LANGUAGE QuasiQuotes #-}
+
 import qualified Satchmo.Counting.Binary as C
 -- import qualified Satchmo.Counting.Unary as C
 
@@ -10,8 +12,11 @@ import Satchmo.Code
 import Satchmo.Boolean
 import Control.Monad ( void, forM, guard, when )
 import qualified Data.Map as M
-import Data.List ( tails )
+import Data.List ( tails, intersperse )
 import System.Environment
+
+import Text.Hamlet (shamlet)
+import Text.Blaze.Html.Renderer.String (renderHtml)
 
 -- | cmd line arguments:
 -- first: King or Knight, then: numbers
@@ -19,24 +24,25 @@ main = do
   neigh : ns <- getArgs
   control (read neigh) $ map read ns
 
-data Neigh = King | Knight deriving ( Read, Show )
+data Neigh = King | Knight | Zebra deriving ( Read, Show )
 
 -- | search for solution on square board.
 -- first increase board size until solution is found,
 -- then reduce number of occupied positions.
+-- then increase board size.
 control neigh ns = do
   let f :: Int -> IO ()
       f w = do
         ok <- work neigh ns w Nothing
         case ok of
           Nothing -> f (w+1)
-          Just c -> g w (c-1)
+          Just c -> g w c 
       g :: Int -> Int -> IO ()    
-      g w c = do
-        ok <- work neigh ns w $ Just c
+      g w have = do
+        ok <- work neigh ns w $ Just (have - 1)
         case ok of
-          Nothing -> return ()
-          Just c -> g w $ c-1
+          Nothing -> g (w+1) have
+          Just c -> g w (have - 1 )
   f 1
 
 test = work King [2,5] 7 Nothing
@@ -53,10 +59,17 @@ knight = do
     guard $ 5 == dx^2 + dy^2
     return (dx,dy)
 
+zebra :: [(Int,Int)]
+zebra = do
+    dx <- [ -3 .. 3 ] ; dy <- [-3 .. 3 ]
+    guard $ 13 == dx^2 + dy^2
+    return (dx,dy)
+
 neighbours neigh bnd (x,y) = do
   (dx,dy) <- case neigh  of
     King -> king
     Knight -> knight
+    Zebra -> zebra
   let pos = (x+dx, y+dy)
   guard $ DA.inRange bnd pos
   return (x+dx,y+dy)
@@ -91,17 +104,51 @@ work neigh ns w mtotal = do
     return $ decode ps
   case out of
     Just ps -> do
-      when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
-      let m = M.fromList $ do
-            (c,p) <- zip [ 'A' .. ] ps ; (i,True) <- DA.assocs p; return (i, c)
       let c = length $ filter id $ ps >>= DA.elems
-      putStrLn $ unlines $ ( "occupied positions: " ++ show c ) : do
-        y <- [1..w]
-        return $ do
-          x <- [1..w]
-          [ M.findWithDefault '.' (x,y) m , ' ' ]
+      let info = [ "neighbours:", show neigh, "degrees:", show ns
+                 , "width:", show w, "occupied:", show c ]
+      when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
+      render_ascii info ps
+      let fname = concat ( intersperse "-" ( show neigh : map show ns ++ [ show c ] ) )
+                  ++ ".html"
+      render_html fname info ps
       return $ Just c
     Nothing -> return Nothing
+
+render_ascii info ps = do
+  let ((1,1),(h,w)) = DA.bounds $ head ps
+  let m = M.fromList $ do
+        (c,p) <- zip [ 'A' .. ] ps ; (i,True) <- DA.assocs p; return (i, c)
+  putStrLn $ unwords info
+  putStrLn $ unlines $ do
+    y <- [1..h]
+    return $ do
+      x <- [1..w]
+      [ M.findWithDefault '.' (x,y) m , ' ' ]
+
+render_html fname info ps = do
+  let ((1,1),(h,w)) = DA.bounds $ head ps
+      xrange = [1..w] ; yrange = [1..h]
+      m = M.fromList $ do
+        (c,p) <- zip [ ("red","A"), ("blue","B"), ("lime","C"), ("violet","D") ] ps
+        (i,True) <- DA.assocs p
+        return (i, c)
+      col x y = M.lookup (x,y) m
+  putStrLn $ unwords ["output to file", fname ]    
+  writeFile fname $ renderHtml [shamlet|
+<h2>
+  $forall i <- info
+        #{i} &nbsp;
+<table cellspacing="0" cellpadding="0" border="0">
+  $forall x <- xrange
+    <col style="width:18"/>
+  $forall y <- yrange
+    <tr align=center>
+      $forall x <- xrange
+        <td>
+           $maybe c <- col x y
+              <font color=#{fst c}>#{snd c}
+|]
           
     
 for = flip map
