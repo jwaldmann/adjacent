@@ -98,7 +98,7 @@ work neigh ns w mtotal = do
         assert [ Satchmo.Boolean.not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
-        when False $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
+        when True $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
           pos <- neighbours neigh bnd (x,y)
           return $ p A.! pos
     return $ decode ps
