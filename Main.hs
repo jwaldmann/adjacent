@@ -11,12 +11,19 @@ import Control.Monad ( void, forM, guard, when )
 import qualified Data.Map as M
 import System.Environment
 
+-- | cmd line arguments:
+-- first: King or Knight, then: numbers
 main = do
   neigh : ns <- getArgs
   control (read neigh) $ map read ns
 
 data Neigh = King | Knight deriving ( Read, Show )
 
+-- | search for solution on square board.
+-- first increase board size until solution is found,
+-- then bisect by number of positions that are occupied.
+-- (this may miss solutions that have larger board size
+-- but smaller number of positions.)
 control neigh ns = do
   let f :: Int -> IO ()
       f w = do
@@ -47,6 +54,14 @@ knight = do
     guard $ 5 == dx^2 + dy^2
     return (dx,dy)
 
+neighbours neigh bnd (x,y) = do
+  (dx,dy) <- case neigh  of
+    King -> king
+    Knight -> knight
+  let pos = (x+dx, y+dy)
+  guard $ DA.inRange bnd pos
+  return (x+dx,y+dy)
+
 work neigh ns w mtotal = do
   print (neigh,ns,w,mtotal)
   out <- solve $ do
@@ -58,17 +73,19 @@ work neigh ns w mtotal = do
       Just total -> do
         ok <- C.atmost total $ ps >>= A.elems ; assert [ ok ]
     void $ forM (A.range bnd) $ \ i -> do
-      ok <- C.atmost 1 $ for ps $ \ p -> p A.! i ; assert [ ok ]    
+      ok <- C.atmost 1 $ for ps $ \ p -> p A.! i ; assert [ ok ]
     void $ forM (zip3 ns ps $ tail ps ++ [head ps]) $ \ (n,p,q) -> 
       void $ forM (A.assocs p) $ \ ((x,y),v) -> do
+        -- number of neighbours:
         ok <- C.exactly n $ do
-              (dx,dy) <- case neigh  of
-                King -> king
-                Knight -> knight
-              let pos = (x+dx, y+dy)
-              guard $ DA.inRange bnd pos
-              return $ q A.! pos
-        assert [ Satchmo.Boolean.not v, ok ]      
+          pos <- neighbours neigh bnd (x,y)
+          return $ q A.! pos
+        assert [ Satchmo.Boolean.not v, ok ]
+        -- for minimality: each position that is occupied,
+        -- should have a reason to be 
+        assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
+          pos <- neighbours neigh bnd (x,y)
+          return $ p A.! pos
     return $ decode ps
   case out of
     Just ps -> do

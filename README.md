@@ -5,7 +5,7 @@ compile: `cabal install`
 usage examples:
 
 ```
-adjacent King 1 4 3
+adjacent King 2 2 4
  
 . . . . B A B . 
 . . B A C C C A 
