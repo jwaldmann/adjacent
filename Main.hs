@@ -20,13 +20,14 @@ import Text.Hamlet (shamlet)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import System.Directory
 
+test = work King [2,5] 7 Nothing
+
 -- | cmd line arguments:
 -- first: King or Knight, then: numbers
 main = do
   neigh : ns <- getArgs
   control (read neigh) $ map read ns
 
-data Neigh = King | Knight | Zebra deriving ( Read, Show )
 
 -- | search for solution on square board.
 -- first increase board size until solution is found,
@@ -47,31 +48,50 @@ control neigh ns = do
           Just c -> g w c
   f 1
 
-test = work King [2,5] 7 Nothing
+-- | We can also use other definitions of adjacent. Instead of king
+-- moves, we could use moves of another piece with 8 symmetric moves:
+-- * a knight,
+-- * congo elephant (which moves 1 or 2 squares horizontally or vertically),
+-- * phoenix (which moves 1 square horizontally or vertically or 2 squares diagonally),
+-- * frog (which moves 3 squares horizontally or vertically or 1 square diagonally),
+-- * or zebra (which moves 2 squares horizontally or vertically, and 3 squares in a perpendicular direction).
 
-king :: [(Int,Int)]
-king = do
-    dx <- [ -1 .. 1 ] ; dy <- [-1 .. 1]
-    guard $ dx /= 0 Prelude.|| dy /= 0
-    return (dx,dy)
+data Neigh = Congo
+           | Frog
+           | King
+           | Knight
+           | Phoenix  
+           | Zebra deriving ( Read, Show )
 
-knight :: [(Int,Int)]
-knight = do
-    dx <- [ -2 .. 2 ] ; dy <- [-2 .. 2]
-    guard $ 5 == dx^2 + dy^2
-    return (dx,dy)
-
-zebra :: [(Int,Int)]
-zebra = do
-    dx <- [ -3 .. 3 ] ; dy <- [-3 .. 3 ]
-    guard $ 13 == dx^2 + dy^2
-    return (dx,dy)
 
 neighbours neigh bnd (x,y) = do
-  (dx,dy) <- case neigh  of
-    King -> king
-    Knight -> knight
-    Zebra -> zebra
+  (dx,dy) <- case neigh of
+    Congo -> do
+      dx <- [-2..2] ; dy <- [-2..2]
+      guard $ (dx == 0) /= (dy == 0)
+      return (dx,dy)
+    Frog -> do
+      dx <- [ -1 .. 1 ] ; dy <- [-1 .. 1]
+      guard $ dx /= 0 Prelude.|| dy /= 0
+      return $ if abs dx == abs dy
+               then (dx,dy) else (3*dx,3*dy)
+    King -> do
+      dx <- [ -1 .. 1 ] ; dy <- [-1 .. 1]
+      guard $ dx /= 0 Prelude.|| dy /= 0
+      return (dx,dy)
+    Knight -> do
+      dx <- [ -2 .. 2 ] ; dy <- [-2 .. 2]
+      guard $ 5 == dx^2 + dy^2
+      return (dx,dy)
+    Phoenix -> do
+      dx <- [ -1 .. 1 ] ; dy <- [-1 .. 1]
+      guard $ dx /= 0 Prelude.|| dy /= 0
+      return $ if abs dx == abs dy
+               then (2*dx,2*dy) else (dx,dy)
+    Zebra -> do
+      dx <- [ -3 .. 3 ] ; dy <- [-3 .. 3 ]
+      guard $ 13 == dx^2 + dy^2
+      return (dx,dy)
   let pos = (x+dx, y+dy)
   guard $ DA.inRange bnd pos
   return (x+dx,y+dy)
@@ -94,7 +114,7 @@ mirror_antidiag p = A.array (A.bounds p) $ do
 work neigh ns w mtotal = do
   print (neigh,ns,w,mtotal)
   out <- solve $ do
-    let bnd = ((1,1),(w,w))
+    let bnd = ((1::Int,1::Int),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
     assert $ ps >>= A.elems
     forM ps $ \ p -> do
