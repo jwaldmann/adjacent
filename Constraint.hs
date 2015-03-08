@@ -8,6 +8,7 @@ import qualified Data.Array as DA
 import Satchmo.SAT.Mini ( solve )
 import Satchmo.Code
 import Prelude hiding (and, or, not)
+import qualified Prelude
 import Satchmo.Boolean
 import Control.Monad ( void, forM, guard, when, zipWithM )
 import qualified Data.Map as M
@@ -95,18 +96,36 @@ work config w mtotal = do
       void $ sequence $ do
         (v:us) <- tails vs ; u <- us
         return $ assert $ map Satchmo.Boolean.not [ v, u]
+
+    when (Prelude.not $ global config) $ do
+      let m = (div w 2, div w 2)
+      assert $ do p <- ps ; return $ p A.! m
+        
     void $ forM (zip3 ns ps $ tail ps ++ [head ps]) $ \ (n,p,q) -> 
       void $ forM (A.assocs p) $ \ ((x,y),v) -> do
-        -- number of neighbours:
-        ok <- C.exactly n $ do
-          pos <- neighbours (neigh config) bnd (x,y)
-          return $ q A.! pos
-        assert [ Satchmo.Boolean.not v, ok ]
+        -- check number of neighbours.
+        -- treat positions at the border specially
+        let qs = map (\i -> q A.! i)
+               $ neighbours (neigh config) bnd (x,y)
+            -- FIXME: hard-coded number
+            inside = length qs == 8
+        if inside
+           then do
+             ok <- C.exactly n qs ; assert [ not v, ok ]
+           else case x <= 2 Prelude.||
+                     y <= 2 Prelude.||
+                     global config of
+             True -> do
+               ok <- C.exactly n qs ; assert [ not v, ok ]
+             False -> do
+               ok <- C.atmost n qs ; assert [ not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
-        when (minimal config) $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
-          pos <- neighbours (neigh config) bnd (x,y)
-          return $ p A.! pos
+        when (minimal config) $ do
+          when (global config Prelude.|| inside) $ do
+            assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
+              pos <- neighbours (neigh config) bnd (x,y)
+              return $ p A.! pos
     return $ decode ps
   case out of
     Just ps -> do

@@ -29,21 +29,23 @@ data Config =
 
 config :: Parser Config
 config = Config
-  <$> ( option auto ( long "global" <> value True ) )
-  <*> ( option auto ( long "search" <> value True ) )
+  <$> ( option auto ( long "global" <> short 'g' <> value True )
+        <|> flag True False ( long "local" <> short 'l' )
+      )
+  <*> ( option auto ( long "search" <> short 'r' <> value True ) )
   <*> ( ( \ s -> read $ "[" ++ s ++ "]" )
         <$> strOption
-        ( long "symmetries" <> value ""
+        ( long "symmetries" <> short 's' <> value ""
           <> help (show [minBound .. maxBound :: Sym])
         )
       )
-  <*> ( option auto  ( long "minimal" <> value True ) )
+  <*> ( option auto  ( long "minimal" <> short 'm' <> value True ) )
   <*> ( read <$> strArgument
         ( metavar "NEIGH"
           <> help (show [minBound .. maxBound::Neigh] 
         ) ) )
   <*> ( many ( read <$> strArgument idm ) ) 
-  <*> ( option auto ( long "width" <> value 1 ) )
+  <*> ( option auto ( long "width" <> short 'w' <> value 1 ) )
 
 config0 = Config
   { global = True, search = True
