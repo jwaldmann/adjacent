@@ -60,21 +60,23 @@ neighbours neigh bnd (x,y) = do
   guard $ DA.inRange bnd pos
   return (x+dx,y+dy)
 
-rotate p = A.array (A.bounds p) $ do
-  let ((1,1),(w,w')) {- | w == w' -} = A.bounds p
-  ((x,y),v) <- A.assocs p
-  return ((w+1-y,x),v)
+transform f p = A.array (A.bounds p) $ do
+  let ((1,1),(w,w')) = A.bounds p
+  (i,v) <- A.assocs p
+  return (f i,v)
 
-mirror_diag p = A.array (A.bounds p) $ do
-  let ((1,1),(w,w')) | w == w' = A.bounds p
-  ((x,y),v) <- A.assocs p
-  return ((y, x),v)
-
-mirror_antidiag p = A.array (A.bounds p) $ do
-  let ((1,1),(w,w')) {- | w == w' -} = A.bounds p
-  ((x,y),v) <- A.assocs p
-  return ((w+1-y, w+1-x),v) 
-
+sym s p = do
+  let ((1,1),(h,w)) = A.bounds p
+      flip x = w + 1 - x
+  ok <- equalsA p $ transform ( \(x,y) -> case s of
+      Anti -> (flip y, flip x)
+      Diag -> (y,x)
+      Vert -> (x, flip y)
+      Hor  -> (flip x, y)
+      Rot4 -> (flip y, x)
+      Rot2 -> (flip x, flip y)
+    ) p
+  assert [ ok ]
 
 work config w mtotal = do
   print (config, w, mtotal)
@@ -83,11 +85,7 @@ work config w mtotal = do
     let bnd = ((1::Int,1::Int),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
     assert $ ps >>= A.elems
-    forM ps $ \ p -> do
-      -- ok <- equalsA p $ mirror_diag p ; assert [ ok ]
-      ok <- equalsA p $ rotate p ; assert [ ok ]
-      -- ok <- equalsA p $ rotate $ rotate p ; assert [ ok ]
-      return ()
+    forM ps $ \ p -> forM (symmetries config) $ \ s -> sym s p
     case mtotal of
       Nothing -> return ()
       Just total -> do
@@ -106,7 +104,7 @@ work config w mtotal = do
         assert [ Satchmo.Boolean.not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
-        when True $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
+        when (minimal config) $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
           pos <- neighbours (neigh config) bnd (x,y)
           return $ p A.! pos
     return $ decode ps

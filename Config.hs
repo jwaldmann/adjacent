@@ -6,7 +6,7 @@ import Options.Applicative.Types
 data Sym = Anti | Diag
          | Hor | Vert
          | Rot2 | Rot4
-   deriving (Eq, Ord, Show, Read)
+   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Neigh = Congo
            | Frog
@@ -14,37 +14,48 @@ data Neigh = Congo
            | Knight
            | Phoenix  
            | Zebra
-   deriving ( Eq, Ord, Read, Show )
+   deriving ( Eq, Ord, Read, Show, Enum, Bounded )
 
 data Config =
   Config { global :: Bool
          , search :: Bool
          , symmetries :: [Sym]
+         , minimal :: Bool           
          , neigh :: Neigh
          , degrees :: [ Int ]
+         , width :: Int  
          }
   deriving ( Show )
 
 config :: Parser Config
 config = Config
-  <$> ( flag True True ( long "global" )
-        <|> flag True False ( long "local" ) )
-  <*> ( flag True True ( long "search" )
-        <|> flag True False ( long "nosearch" ) )
+  <$> ( option auto ( long "global" <> value True ) )
+  <*> ( option auto ( long "search" <> value True ) )
   <*> ( ( \ s -> read $ "[" ++ s ++ "]" )
-        <$> strOption ( long "symmetries" <> value "" )
+        <$> strOption
+        ( long "symmetries" <> value ""
+          <> help (show [minBound .. maxBound :: Sym])
+        )
       )
-  <*> ( read <$> strArgument idm )
-  <*> ( many ( read <$> strArgument idm ) )
+  <*> ( option auto  ( long "minimal" <> value True ) )
+  <*> ( read <$> strArgument
+        ( metavar "NEIGH"
+          <> help (show [minBound .. maxBound::Neigh] 
+        ) ) )
+  <*> ( many ( read <$> strArgument idm ) ) 
+  <*> ( option auto ( long "width" <> value 1 ) )
 
 config0 = Config
   { global = True, search = True
-  , symmetries = [ Rot4 ]
-  , neigh = King, degrees = [ 2,5 ]
+  , symmetries = [ Rot4 ], minimal = True
+  , neigh = King, degrees = [ 2,5 ], width = 7
   }
             
-
 parse :: IO Config
-parse  = execParser $ info ( helper <*> config ) fullDesc
+parse  = execParser $ info ( helper <*> config )
+  $ fullDesc
+  <> progDesc "see http://www2.stetson.edu/~efriedma/mathmagic/0315.html"
+  <> progDesc "use -h to get more information"
+  
 
 
