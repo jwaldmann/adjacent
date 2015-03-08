@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                adjacent
-version:             0.1.0.0
+version:             0.2
 -- synopsis:            
 -- description:         
 license:             GPL-3
@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 executable adjacent
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       Constraint, Render
   -- other-extensions:    
   build-depends:       base, satchmo >=2.9.3, array, containers, directory, shakespeare, blaze-html
   -- hs-source-dirs:      
