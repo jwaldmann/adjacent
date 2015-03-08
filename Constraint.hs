@@ -13,7 +13,9 @@ import Control.Monad ( void, forM, guard, when, zipWithM )
 import qualified Data.Map as M
 import Data.List ( tails, intersperse, isPrefixOf )
 
+import Config
 import Render
+
 import System.Directory
 
 
@@ -24,13 +26,6 @@ import System.Directory
 -- * phoenix (which moves 1 square horizontally or vertically or 2 squares diagonally),
 -- * frog (which moves 3 squares horizontally or vertically or 1 square diagonally),
 -- * or zebra (which moves 2 squares horizontally or vertically, and 3 squares in a perpendicular direction).
-
-data Neigh = Congo
-           | Frog
-           | King
-           | Knight
-           | Phoenix  
-           | Zebra deriving ( Read, Show )
 
 
 neighbours neigh bnd (x,y) = do
@@ -80,8 +75,10 @@ mirror_antidiag p = A.array (A.bounds p) $ do
   ((x,y),v) <- A.assocs p
   return ((w+1-y, w+1-x),v) 
 
-work neigh ns w mtotal = do
-  print (neigh,ns,w,mtotal)
+
+work config w mtotal = do
+  print (config, w, mtotal)
+  let ns = degrees config
   out <- solve $ do
     let bnd = ((1::Int,1::Int),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
@@ -104,23 +101,26 @@ work neigh ns w mtotal = do
       void $ forM (A.assocs p) $ \ ((x,y),v) -> do
         -- number of neighbours:
         ok <- C.exactly n $ do
-          pos <- neighbours neigh bnd (x,y)
+          pos <- neighbours (neigh config) bnd (x,y)
           return $ q A.! pos
         assert [ Satchmo.Boolean.not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
         when True $ assert $ Satchmo.Boolean.not ( q A.! (x,y)) : do
-          pos <- neighbours neigh bnd (x,y)
+          pos <- neighbours (neigh config) bnd (x,y)
           return $ p A.! pos
     return $ decode ps
   case out of
     Just ps -> do
       let c = length $ filter id $ ps >>= DA.elems
-      let info = [ "neighbours:", show neigh, "degrees:", show ns
-                 , "width:", show w, "occupied:", show c ]
+      let info = [ "neighbours:", show (neigh config)
+                 , "degrees:", show ns
+                 , "width:", show w
+                 , "occupied:", show c
+                 ]
       when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
       render_ascii info ps
-      let prefix = concat ( intersperse "-" ( show neigh : map show ns  ) ) ++ "."
+      let prefix = concat ( intersperse "-" ( show (neigh config) : map show ns  ) ) ++ "."
           fname = prefix ++ show c ++ ".html"
       fs <- getDirectoryContents "."
       forM fs $ \ f -> when (isPrefixOf prefix f) $ do

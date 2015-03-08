@@ -12,13 +12,13 @@ maintainer:          waldmann@imn.htwk-leipzig.de
 -- copyright:           
 category:            Math
 build-type:          Simple
-extra-source-files:  README.md~, README.md
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 executable adjacent
   main-is:             Main.hs
-  other-modules:       Constraint, Render
+  other-modules:       Constraint, Render, Config
   -- other-extensions:    
-  build-depends:       base, satchmo >=2.9.3, array, containers, directory, shakespeare, blaze-html
+  build-depends:       base, satchmo >=2.9.3, array, containers, directory, shakespeare, blaze-html, optparse-applicative
   -- hs-source-dirs:      
   default-language:    Haskell2010
