@@ -16,10 +16,15 @@ data Neigh = Congo
            | Zebra
    deriving ( Eq, Ord, Read, Show, Enum, Bounded )
 
+data Counter = Direct | Unary | Binary
+
+   deriving ( Eq, Ord, Read, Show, Enum, Bounded )
+
 data Config =
   Config { global :: Bool
          , search :: Bool
          , symmetries :: [Sym]
+         , counter :: Counter
          , minimal :: Bool           
          , neigh :: Neigh
          , degrees :: [ Int ]
@@ -39,6 +44,9 @@ config = Config
           <> help (show [minBound .. maxBound :: Sym])
         )
       )
+  <*> ( option auto (long "counter" <> short 'c' <> value Binary 
+          <> help (show [minBound .. maxBound::Counter] )
+                    ) ) 
   <*> ( option auto  ( long "minimal" <> short 'm' <> value True ) )
   <*> ( read <$> strArgument
         ( metavar "NEIGH"
@@ -49,7 +57,7 @@ config = Config
 
 config0 = Config
   { global = True, search = True
-  , symmetries = [ Rot4 ], minimal = True
+  , symmetries = [ Rot4 ], minimal = True, counter = Binary
   , neigh = King, degrees = [ 2,5 ], width = 7
   }
             

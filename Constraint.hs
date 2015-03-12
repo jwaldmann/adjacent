@@ -1,7 +1,8 @@
 module Constraint where
 
-import qualified Satchmo.Counting.Binary as C
--- import qualified Satchmo.Counting.Unary as C
+import qualified Satchmo.Counting.Binary as BC
+import qualified Satchmo.Counting.Unary as UC
+import qualified Satchmo.Counting.Direct as DC
 
 import qualified Satchmo.Array as A
 import qualified Data.Array as DA
@@ -90,7 +91,7 @@ work config w mtotal = do
     case mtotal of
       Nothing -> return ()
       Just total -> do
-        ok <- C.atmost total $ ps >>= A.elems ; assert [ ok ]
+        ok <- BC.atmost total $ ps >>= A.elems ; assert [ ok ]
     void $ forM (A.range bnd) $ \ i -> do
       let vs = for ps $ \ p -> p A.! i 
       void $ sequence $ do
@@ -109,16 +110,23 @@ work config w mtotal = do
                $ neighbours (neigh config) bnd (x,y)
             -- FIXME: hard-coded number
             inside = length qs == 8
+        let exactly = case counter config of
+              Binary -> BC.exactly ; Unary -> UC.exactly ; Direct -> DC.exactly
+        let atmost = case counter config of
+              Binary -> BC.atmost ; Unary -> UC.atmost ; Direct -> DC.atmost
         if inside
            then do
-             ok <- C.exactly n qs ; assert [ not v, ok ]
+             case counter config of
+                  Binary -> do ok <- BC.exactly n qs ; assert [ not v, ok ]
+                  Unary -> do ok <- BC.exactly n qs ; assert [ not v, ok ]
+                  Direct -> DC.assert_implies_exactly [ v ] n qs
            else case x <= 2 Prelude.||
                      y <= 2 Prelude.||
                      global config of
              True -> do
-               ok <- C.exactly n qs ; assert [ not v, ok ]
+               ok <- exactly n qs ; assert [ not v, ok ]
              False -> do
-               ok <- C.atmost n qs ; assert [ not v, ok ]
+               ok <- atmost n qs ; assert [ not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
         when (minimal config) $ do

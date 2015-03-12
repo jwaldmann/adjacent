@@ -19,6 +19,6 @@ executable adjacent
   main-is:             Main.hs
   other-modules:       Constraint, Render, Config
   -- other-extensions:    
-  build-depends:       base, satchmo >=2.9.3, array, containers, directory, shakespeare, blaze-html, optparse-applicative
+  build-depends:       base, satchmo >=2.9.4, array, containers, directory, shakespeare, blaze-html, optparse-applicative
   -- hs-source-dirs:      
   default-language:    Haskell2010
