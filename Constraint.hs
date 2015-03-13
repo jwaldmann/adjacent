@@ -145,6 +145,7 @@ work config w mtotal = do
                  , "width:", show w
                  , "occupied:", show c
                  , "symmetries:", show $ symmetries config
+                 , "counter:", show $ counter config
                  , "time:", show delta
                  ]
       when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
