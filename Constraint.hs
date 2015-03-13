@@ -11,7 +11,7 @@ import Satchmo.Code
 import Prelude hiding (and, or, not)
 import qualified Prelude
 import Satchmo.Boolean
-import Control.Monad ( void, forM, guard, when, zipWithM )
+import Control.Monad ( void, forM, guard, when, zipWithM, zipWithM_ )
 import qualified Data.Map as M
 import Data.List ( tails, intersperse, isPrefixOf )
 
@@ -19,7 +19,7 @@ import Config
 import Render
 
 import System.Directory
-
+import Data.Time.Clock
 
 -- | We can also use other definitions of adjacent. Instead of king
 -- moves, we could use moves of another piece with 8 symmetric moves:
@@ -70,7 +70,7 @@ transform f p = A.array (A.bounds p) $ do
 sym s p = do
   let ((1,1),(h,w)) = A.bounds p
       flip x = w + 1 - x
-  ok <- equalsA p $ transform ( \(x,y) -> case s of
+  assert_equalsA p $ transform ( \(x,y) -> case s of
       Anti -> (flip y, flip x)
       Diag -> (y,x)
       Vert -> (x, flip y)
@@ -78,12 +78,23 @@ sym s p = do
       Rot4 -> (flip y, x)
       Rot2 -> (flip x, flip y)
     ) p
-  assert [ ok ]
+
+equalsA a b | A.bounds a == A.bounds b = 
+  zipWithM equals2 (A.elems a) (A.elems b) >>= and
+  
+assert_equalsA a b | A.bounds a == A.bounds b = 
+  zipWithM_ (assert_fun2 (==)) (A.elems a) (A.elems b)
+
+timed action = do
+  start <- getCurrentTime
+  result <- action
+  end <- getCurrentTime
+  return (diffUTCTime end start, result)
 
 work config w mtotal = do
   print (config, w, mtotal)
   let ns = degrees config
-  out <- solve $ do
+  (delta, out) <- timed $ solve $ do
     let bnd = ((1::Int,1::Int),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
     assert $ ps >>= A.elems
@@ -92,11 +103,9 @@ work config w mtotal = do
       Nothing -> return ()
       Just total -> do
         ok <- BC.atmost total $ ps >>= A.elems ; assert [ ok ]
+
     void $ forM (A.range bnd) $ \ i -> do
-      let vs = for ps $ \ p -> p A.! i 
-      void $ sequence $ do
-        (v:us) <- tails vs ; u <- us
-        return $ assert $ map Satchmo.Boolean.not [ v, u]
+      DC.assert_implies_atmost [] 1 $ for ps $ \ p -> p A.! i 
 
     when (Prelude.not $ global config) $ do
       let m = (div w 2, div w 2)
@@ -110,23 +119,16 @@ work config w mtotal = do
                $ neighbours (neigh config) bnd (x,y)
             -- FIXME: hard-coded number
             inside = length qs == 8
-        let exactly = case counter config of
-              Binary -> BC.exactly ; Unary -> UC.exactly ; Direct -> DC.exactly
         let atmost = case counter config of
               Binary -> BC.atmost ; Unary -> UC.atmost ; Direct -> DC.atmost
-        if inside
+        if global config Prelude.|| inside
            then do
              case counter config of
                   Binary -> do ok <- BC.exactly n qs ; assert [ not v, ok ]
                   Unary -> do ok <- BC.exactly n qs ; assert [ not v, ok ]
                   Direct -> DC.assert_implies_exactly [ v ] n qs
-           else case x <= 2 Prelude.||
-                     y <= 2 Prelude.||
-                     global config of
-             True -> do
-               ok <- exactly n qs ; assert [ not v, ok ]
-             False -> do
-               ok <- atmost n qs ; assert [ not v, ok ]
+           else do
+             ok <- atmost n qs ; assert [ not v, ok ]
         -- for minimality: each position that is occupied,
         -- should have a reason to be 
         when (minimal config) $ do
@@ -142,6 +144,8 @@ work config w mtotal = do
                  , "degrees:", show ns
                  , "width:", show w
                  , "occupied:", show c
+                 , "symmetries:", show $ symmetries config
+                 , "time:", show delta
                  ]
       when False $ print (ps :: [ DA.Array (Int,Int) Bool ] )
       render_ascii info ps
@@ -154,10 +158,6 @@ work config w mtotal = do
       render_html fname info ps
       return $ Just c
     Nothing -> return Nothing
-
-equalsA a b | A.bounds a == A.bounds b = 
-  zipWithM equals2 (A.elems a) (A.elems b) >>= and
-  
 
     
 for = flip map
