@@ -94,6 +94,10 @@ timed action = do
 work config w mtotal = do
   print (config, w, mtotal)
   let ns = degrees config
+  let prefix = concat ( intersperse "-" ( show (neigh config) : map show ns ) )
+               ++ ".current"
+  now <- getCurrentTime
+  writeFile prefix $ unwords [ show now, show (config, w, mtotal) ]
   (delta, out) <- timed $ solve $ do
     let bnd = ((1::Int,1::Int),(w,w))
     ps <- forM ns $ \ n -> A.unknown bnd boolean
